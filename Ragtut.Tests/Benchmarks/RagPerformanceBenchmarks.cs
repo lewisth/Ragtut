@@ -157,7 +157,7 @@ public class RagPerformanceBenchmarks
     [Arguments(50)]
     public async Task<IEnumerable<DocumentChunk>> SearchSimilar(int maxResults)
     {
-        return await _vectorStore.SearchSimilarAsync(_queryEmbedding, maxResults, 0.1f);
+        return await _vectorStore.SearchSimilarAsync(_queryEmbedding, maxResults, 0.05f);
     }
 
     [Benchmark]
@@ -197,7 +197,7 @@ public class RagPerformanceBenchmarks
             await tempVectorStore.StoreChunksAsync(chunks);
             
             var query = await _embeddingGenerator.GenerateEmbeddingAsync("test query");
-            var results = await tempVectorStore.SearchSimilarAsync(query, 5, 0.1f);
+            var results = await tempVectorStore.SearchSimilarAsync(query, 5, 0.05f);
         }
         finally
         {
@@ -230,7 +230,7 @@ public class RagPerformanceBenchmarks
         }
 
         var tasks = queries.Select(query => 
-            _vectorStore.SearchSimilarAsync(query, 5, 0.1f));
+            _vectorStore.SearchSimilarAsync(query, 5, 0.05f));
         
         await Task.WhenAll(tasks);
     }

@@ -99,7 +99,7 @@ while (true)
         conversationHistory.Add(("assistant", response));
 
         // Display response
-        AnsiConsole.MarkupLine($"[green]Assistant:[/] {response}");
+        AnsiConsole.MarkupLine($"[green]Assistant:[/] {Markup.Escape(response)}");
     }
     catch (Exception ex)
     {

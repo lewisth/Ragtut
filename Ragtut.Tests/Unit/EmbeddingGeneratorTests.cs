@@ -17,39 +17,29 @@ public class EmbeddingGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_WithInvalidModelPath_ShouldThrowException()
+    public void Constructor_WithValidModelPath_ShouldSucceed()
     {
-        // Arrange
-        var invalidModelPath = "non_existent_model.onnx";
 
-        // Act & Assert
-        Assert.Throws<Microsoft.ML.OnnxRuntime.OnnxRuntimeException>(() => 
-            new EmbeddingGenerator(invalidModelPath, _mockLogger.Object));
+        var mockModelPath = "models/test_model.onnx"; // Path doesn't matter for TF-IDF approach
+
+        var generator = new EmbeddingGenerator(mockModelPath, _mockLogger.Object);
+        generator.ShouldNotBeNull();
+        generator.Dispose();
     }
 
     [Fact]
     public async Task GenerateEmbeddingAsync_WithValidText_ShouldReturnNormalizedEmbedding()
     {
-        // Note: This test requires a valid ONNX model file
-        // In a real test environment, you would use a mock or test model
-        
-        // Skip if no test model available
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null)
-        {
-            return; // Skip test if no model available
-        }
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
         var testText = "This is a test sentence for embedding generation.";
 
-        // Act
+
         var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(testText);
 
-        // Assert
+
         embedding.ShouldNotBeNull();
-        embedding.Length.ShouldBeGreaterThan(0);
+        embedding.Length.ShouldBe(384); // Fixed dimension for TF-IDF approach
         
         // Check if embedding is normalized (magnitude should be approximately 1)
         var magnitude = Math.Sqrt(embedding.Sum(x => x * x));
@@ -59,131 +49,170 @@ public class EmbeddingGeneratorTests : IDisposable
     [Fact]
     public async Task GenerateEmbeddingAsync_WithEmptyText_ShouldReturnValidEmbedding()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
 
-        // Act
         var embedding = await _embeddingGenerator.GenerateEmbeddingAsync("");
-
-        // Assert
+       
         embedding.ShouldNotBeNull();
-        embedding.Length.ShouldBeGreaterThan(0);
+        embedding.Length.ShouldBe(384);
+        
+        // Empty text should still produce a valid embedding (all zeros when normalized)
+        var allZeros = embedding.All(x => Math.Abs(x) < 0.001f);
+        allZeros.ShouldBeTrue();
     }
 
     [Fact]
     public async Task GenerateEmbeddingAsync_WithSameText_ShouldReturnSameEmbedding()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
-
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
         var testText = "Consistent test text";
 
-        // Act
         var embedding1 = await _embeddingGenerator.GenerateEmbeddingAsync(testText);
         var embedding2 = await _embeddingGenerator.GenerateEmbeddingAsync(testText);
-
-        // Assert
+     
         embedding1.ShouldBe(embedding2);
     }
 
     [Fact]
     public async Task GenerateEmbeddingAsync_WithDifferentText_ShouldReturnDifferentEmbeddings()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
+        var text1 = "This is the first text about machine learning";
+        var text2 = "This is completely different content about cooking";
+        
+        var embedding1 = await _embeddingGenerator.GenerateEmbeddingAsync(text1);
+        var embedding2 = await _embeddingGenerator.GenerateEmbeddingAsync(text2);
+       
+        embedding1.ShouldNotBe(embedding2);
+    }
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
-        var text1 = "This is the first text";
-        var text2 = "This is completely different content";
+    [Fact]
+    public async Task GenerateEmbeddingAsync_WithSimilarText_ShouldReturnSimilarEmbeddings()
+    {        
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
+        var text1 = "machine learning algorithms";
+        var text2 = "algorithms for machine learning";
 
-        // Act
         var embedding1 = await _embeddingGenerator.GenerateEmbeddingAsync(text1);
         var embedding2 = await _embeddingGenerator.GenerateEmbeddingAsync(text2);
 
-        // Assert
-        embedding1.ShouldNotBe(embedding2);
+         // Calculate cosine similarity
+        var similarity = CalculateCosineSimilarity(embedding1, embedding2);
+        similarity.ShouldBeGreaterThan(0.5f); // Similar texts should have reasonable similarity
     }
 
     [Fact]
     public async Task GenerateEmbeddingAsync_WithCancellation_ShouldRespectCancellationToken()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => _embeddingGenerator.GenerateEmbeddingAsync("test", cts.Token));
     }
 
     [Fact]
-    public void EmbeddingDimension_ShouldReturnConsistentValue()
+    public void EmbeddingDimension_ShouldReturn384()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
 
-        // Act
+
         var dimension = _embeddingGenerator.EmbeddingDimension;
 
-        // Assert
-        dimension.ShouldBeGreaterThan(0);
+        
+        dimension.ShouldBe(384); // Fixed dimension for TF-IDF approach
     }
 
     [Fact]
     public async Task GenerateEmbeddingAsync_WithLongText_ShouldHandleGracefully()
     {
-        var testModelPath = GetTestModelPath();
-        if (testModelPath == null) return;
 
-        // Arrange
-        _embeddingGenerator = new EmbeddingGenerator(testModelPath, _mockLogger.Object);
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
         var longText = string.Join(" ", Enumerable.Repeat("word", 10000));
 
-        // Act
+
         var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(longText);
 
-        // Assert
+        
         embedding.ShouldNotBeNull();
-        embedding.Length.ShouldBeGreaterThan(0);
+        embedding.Length.ShouldBe(384);
+        
+        // Should still be normalized
+        var magnitude = Math.Sqrt(embedding.Sum(x => x * x));
+        magnitude.ShouldBe(1.0f, 0.001f);
     }
 
-    private string? GetTestModelPath()
+    [Fact]
+    public async Task GenerateEmbeddingAsync_WithSpecialCharacters_ShouldHandleGracefully()
     {
-        // In a real test environment, you would have a test ONNX model
-        // For now, return null to skip tests that require a model
-        var testModelPath = Path.Combine("TestData", "test_model.onnx");
-        return File.Exists(testModelPath) ? testModelPath : null;
+
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
+        var textWithSpecialChars = "Hello! How are you? This has punctuation: colons, semicolons; and [brackets].";
+
+
+        var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(textWithSpecialChars);
+
+        
+        embedding.ShouldNotBeNull();
+        embedding.Length.ShouldBe(384);
+        
+        // Should be normalized
+        var magnitude = Math.Sqrt(embedding.Sum(x => x * x));
+        magnitude.ShouldBe(1.0f, 0.001f);
+    }
+
+    [Fact]
+    public async Task GenerateEmbeddingAsync_WithLayeredArchitectureTerms_ShouldCreateMeaningfulEmbedding()
+    {
+
+        _embeddingGenerator = new EmbeddingGenerator("dummy_path", _mockLogger.Object);
+        var architectureText = "layered architecture pattern with presentation layer business logic layer data access layer";
+        var unrelatedText = "cooking recipes with ingredients and preparation steps";
+
+
+        var archEmbedding = await _embeddingGenerator.GenerateEmbeddingAsync(architectureText);
+        var cookingEmbedding = await _embeddingGenerator.GenerateEmbeddingAsync(unrelatedText);
+
+        
+        archEmbedding.ShouldNotBeNull();
+        cookingEmbedding.ShouldNotBeNull();
+        
+        // These should be quite different
+        var similarity = CalculateCosineSimilarity(archEmbedding, cookingEmbedding);
+        similarity.ShouldBeLessThan(0.5f); // Unrelated texts should have low similarity
+    }
+
+    private float CalculateCosineSimilarity(float[] vector1, float[] vector2)
+    {
+        if (vector1.Length != vector2.Length)
+            return 0f;
+
+        var dotProduct = 0f;
+        var magnitude1 = 0f;
+        var magnitude2 = 0f;
+
+        for (int i = 0; i < vector1.Length; i++)
+        {
+            dotProduct += vector1[i] * vector2[i];
+            magnitude1 += vector1[i] * vector1[i];
+            magnitude2 += vector2[i] * vector2[i];
+        }
+
+        magnitude1 = (float)Math.Sqrt(magnitude1);
+        magnitude2 = (float)Math.Sqrt(magnitude2);
+
+        if (magnitude1 == 0f || magnitude2 == 0f)
+            return 0f;
+
+        return dotProduct / (magnitude1 * magnitude2);
     }
 
     public void Dispose()
     {
         _embeddingGenerator?.Dispose();
-    }
-}
-
-// Helper class to create a mock ONNX model for testing
-public static class TestModelHelper
-{
-    public static void CreateMockModel(string path)
-    {
-        // This would create a minimal ONNX model for testing purposes
-        // Implementation depends on your specific testing needs
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        
-        // Create a dummy file for now - in real tests you'd create a proper ONNX model
-        File.WriteAllText(path, "mock_model_data");
     }
 } 

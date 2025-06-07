@@ -53,20 +53,15 @@ public class DocumentProcessorTests
     [InlineData("", false)]
     public void SupportsFileType_ShouldReturnCorrectResult(string extension, bool expected)
     {
-        // Arrange
         var filePath = $"test{extension}";
-
-        // Act
         var result = _documentProcessor.SupportsFileType(filePath);
-
-        // Assert
+        
         result.ShouldBe(expected);
     }
 
     [Fact]
     public async Task ProcessDocumentAsync_WithTextFile_ShouldReturnChunks()
     {
-        // Arrange
         var testText = "This is a test document. " + string.Join(" ", Enumerable.Repeat("word", 200));
         var tempFile = Path.GetTempFileName();
         var textFile = Path.ChangeExtension(tempFile, ".txt");
@@ -79,10 +74,8 @@ public class DocumentProcessorTests
 
         try
         {
-            // Act
             var result = await _documentProcessor.ProcessDocumentAsync(textFile);
 
-            // Assert
             result.ShouldNotBeEmpty();
             result.All(chunk => chunk.DocumentName == Path.GetFileName(textFile)).ShouldBeTrue();
             result.All(chunk => chunk.Embedding.SequenceEqual(mockEmbedding)).ShouldBeTrue();
@@ -98,10 +91,8 @@ public class DocumentProcessorTests
     [Fact]
     public async Task ProcessDocumentAsync_WithUnsupportedFile_ShouldThrowNotSupportedException()
     {
-        // Arrange
         var tempFile = Path.GetTempFileName() + ".xyz";
 
-        // Act & Assert
         await Assert.ThrowsAsync<NotSupportedException>(
             () => _documentProcessor.ProcessDocumentAsync(tempFile));
     }
@@ -109,7 +100,6 @@ public class DocumentProcessorTests
     [Fact]
     public async Task ProcessDocumentAsync_WithEmptyFile_ShouldReturnEmptyChunks()
     {
-        // Arrange
         var tempFile = Path.GetTempFileName();
         var textFile = Path.ChangeExtension(tempFile, ".txt");
         File.Delete(tempFile); // Delete the .tmp file
@@ -117,10 +107,8 @@ public class DocumentProcessorTests
 
         try
         {
-            // Act
             var result = await _documentProcessor.ProcessDocumentAsync(textFile);
-
-            // Assert
+    
             result.ShouldBeEmpty();
         }
         finally
@@ -136,7 +124,6 @@ public class DocumentProcessorTests
         // This test would require making the SplitTextIntoChunks method public or internal
         // For now, we test it indirectly through ProcessDocumentAsync
         
-        // Arrange
         var words = Enumerable.Range(1, 1000).Select(i => $"word{i}").ToArray();
         var testText = string.Join(" ", words);
         
@@ -147,7 +134,6 @@ public class DocumentProcessorTests
     [Fact]
     public async Task ProcessDocumentAsync_ShouldGenerateUniqueHashes()
     {
-        // Arrange
         var testText1 = "This is test content number one.";
         var testText2 = "This is test content number two.";
         
@@ -167,11 +153,9 @@ public class DocumentProcessorTests
 
         try
         {
-            // Act
             var chunks1 = await _documentProcessor.ProcessDocumentAsync(textFile1);
             var chunks2 = await _documentProcessor.ProcessDocumentAsync(textFile2);
-
-            // Assert
+            
             var hash1 = chunks1.First().Hash;
             var hash2 = chunks2.First().Hash;
             hash1.ShouldNotBe(hash2);
@@ -188,7 +172,6 @@ public class DocumentProcessorTests
     [Fact]
     public async Task ProcessDocumentAsync_WithCancellation_ShouldRespectCancellationToken()
     {
-        // Arrange
         var testText = string.Join(" ", Enumerable.Repeat("word", 10000));
         var tempFile = Path.GetTempFileName();
         var textFile = Path.ChangeExtension(tempFile, ".txt");
@@ -200,7 +183,7 @@ public class DocumentProcessorTests
 
         try
         {
-            // Act & Assert - TaskCanceledException inherits from OperationCanceledException
+            // TaskCanceledException inherits from OperationCanceledException
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => _documentProcessor.ProcessDocumentAsync(textFile, cts.Token));
         }

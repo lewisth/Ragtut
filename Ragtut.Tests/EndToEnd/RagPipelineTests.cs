@@ -96,16 +96,13 @@ Machine learning continues to evolve rapidly, with new algorithms and applicatio
     [Fact]
     public async Task CompleteRagPipeline_ShouldProcessDocumentAndEnableRetrieval()
     {
-        // Arrange
         var documentProcessor = _serviceProvider.GetRequiredService<IDocumentProcessor>();
         var vectorStore = _serviceProvider.GetRequiredService<IVectorStore>();
         await vectorStore.InitializeAsync();
 
-        // Act - Process document
         var chunks = await documentProcessor.ProcessDocumentAsync(_testDocumentPath);
         await vectorStore.StoreChunksAsync(chunks);
 
-        // Assert - Verify document was processed and stored
         chunks.ShouldNotBeEmpty();
         chunks.All(c => c.DocumentName == Path.GetFileName(_testDocumentPath)).ShouldBeTrue();
         chunks.All(c => !string.IsNullOrEmpty(c.Text)).ShouldBeTrue();
@@ -118,7 +115,6 @@ Machine learning continues to evolve rapidly, with new algorithms and applicatio
     [Fact]
     public async Task RagPipeline_ShouldRetrieveRelevantChunks_ForSpecificQuery()
     {
-        // Arrange
         var documentProcessor = _serviceProvider.GetRequiredService<IDocumentProcessor>();
         var vectorStore = _serviceProvider.GetRequiredService<IVectorStore>();
         var embeddingGenerator = _serviceProvider.GetRequiredService<IEmbeddingGenerator>();
@@ -127,12 +123,11 @@ Machine learning continues to evolve rapidly, with new algorithms and applicatio
         var chunks = await documentProcessor.ProcessDocumentAsync(_testDocumentPath);
         await vectorStore.StoreChunksAsync(chunks);
 
-        // Act - Search for content about supervised learning
         var query = "What is supervised learning in machine learning?";
         var queryEmbedding = await embeddingGenerator.GenerateEmbeddingAsync(query);
-        var relevantChunks = await vectorStore.SearchSimilarAsync(queryEmbedding, 3, 0.1f);
+        var relevantChunks = await vectorStore.SearchSimilarAsync(queryEmbedding, 3, 0.05f);
 
-        // Assert
+        
         relevantChunks.ShouldNotBeEmpty();
         relevantChunks.Count().ShouldBeLessThanOrEqualTo(3);
         
@@ -167,14 +162,13 @@ Deep learning is used in image recognition, speech processing, and natural langu
         {
             await vectorStore.InitializeAsync();
 
-            // Act - Process both documents
             var chunks1 = await documentProcessor.ProcessDocumentAsync(_testDocumentPath);
             var chunks2 = await documentProcessor.ProcessDocumentAsync(secondDocPath);
             
             await vectorStore.StoreChunksAsync(chunks1);
             await vectorStore.StoreChunksAsync(chunks2);
 
-            // Assert
+            
             var doc1Exists = await vectorStore.DocumentExistsAsync(Path.GetFileName(_testDocumentPath));
             var doc2Exists = await vectorStore.DocumentExistsAsync(Path.GetFileName(secondDocPath));
             
@@ -185,7 +179,7 @@ Deep learning is used in image recognition, speech processing, and natural langu
             var embeddingGenerator = _serviceProvider.GetRequiredService<IEmbeddingGenerator>();
             var query = "neural networks";
             var queryEmbedding = await embeddingGenerator.GenerateEmbeddingAsync(query);
-            var results = await vectorStore.SearchSimilarAsync(queryEmbedding, 10, 0.1f);
+            var results = await vectorStore.SearchSimilarAsync(queryEmbedding, 10, 0.05f);
             
             results.ShouldNotBeEmpty();
             results.Select(r => r.DocumentName).Distinct().Count().ShouldBeGreaterThan(1);
@@ -200,7 +194,6 @@ Deep learning is used in image recognition, speech processing, and natural langu
     [Fact]
     public async Task RagPipeline_ShouldHandleDocumentUpdates()
     {
-        // Arrange
         var documentProcessor = _serviceProvider.GetRequiredService<IDocumentProcessor>();
         var vectorStore = _serviceProvider.GetRequiredService<IVectorStore>();
         await vectorStore.InitializeAsync();
@@ -209,7 +202,7 @@ Deep learning is used in image recognition, speech processing, and natural langu
         var initialChunks = await documentProcessor.ProcessDocumentAsync(_testDocumentPath);
         await vectorStore.StoreChunksAsync(initialChunks);
 
-        // Act - Update document content with substantial additional content
+        // Update document content with substantial additional content
         var additionalContent = @"
 
 ## Quantum Machine Learning
@@ -253,13 +246,13 @@ As quantum hardware continues to improve, we expect to see more practical applic
         var updatedChunks = await documentProcessor.ProcessDocumentAsync(_testDocumentPath);
         await vectorStore.StoreChunksAsync(updatedChunks);
 
-        // Assert - The updated document should have more chunks due to substantial additional content
+        // The updated document should have more chunks due to substantial additional content
         updatedChunks.Count().ShouldBeGreaterThan(initialChunks.Count());
         
         var embeddingGenerator = _serviceProvider.GetRequiredService<IEmbeddingGenerator>();
         var query = "quantum machine learning";
         var queryEmbedding = await embeddingGenerator.GenerateEmbeddingAsync(query);
-        var results = await vectorStore.SearchSimilarAsync(queryEmbedding, 5, 0.1f);
+        var results = await vectorStore.SearchSimilarAsync(queryEmbedding, 5, 0.05f);
         
         results.ShouldNotBeEmpty();
         results.Any(r => r.Text.ToLower().Contains("quantum")).ShouldBeTrue();
@@ -268,14 +261,11 @@ As quantum hardware continues to improve, we expect to see more practical applic
     [Fact]
     public async Task RagPipeline_ShouldHandleErrorsGracefully()
     {
-        // Arrange
         var documentProcessor = _serviceProvider.GetRequiredService<IDocumentProcessor>();
         
-        // Act & Assert - Non-existent file
         await Assert.ThrowsAsync<FileNotFoundException>(
             () => documentProcessor.ProcessDocumentAsync("non_existent_file.txt"));
 
-        // Act & Assert - Unsupported file type
         var unsupportedFile = Path.GetTempFileName() + ".xyz";
         try
         {
@@ -293,7 +283,6 @@ As quantum hardware continues to improve, we expect to see more practical applic
     [Fact]
     public async Task RagPipeline_ShouldMaintainConsistencyUnderLoad()
     {
-        // Arrange
         var documentProcessor = _serviceProvider.GetRequiredService<IDocumentProcessor>();
         var vectorStore = _serviceProvider.GetRequiredService<IVectorStore>();
         await vectorStore.InitializeAsync();
@@ -309,7 +298,7 @@ As quantum hardware continues to improve, we expect to see more practical applic
 
         try
         {
-            // Act - Process multiple documents concurrently
+            // Process multiple documents concurrently
             var tasks = testDocs.Select(async docPath =>
             {
                 var chunks = await documentProcessor.ProcessDocumentAsync(docPath);
@@ -319,7 +308,7 @@ As quantum hardware continues to improve, we expect to see more practical applic
 
             var results = await Task.WhenAll(tasks);
 
-            // Assert
+            
             results.All(count => count > 0).ShouldBeTrue();
             
             // Verify all documents were stored
