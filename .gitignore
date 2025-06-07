@@ -384,3 +384,4 @@ documents/*
 models/*
 data/*
 *.db
+.DS_Store
