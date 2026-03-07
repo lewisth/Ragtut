@@ -41,10 +41,15 @@ public class RetryPolicyService
 
                 return await operation();
             }
-            catch (Exception ex) when (IsRetriableException(ex) && attempt < _config.MaxRetries - 1)
+            catch (Exception ex) when (IsRetriableException(ex))
             {
                 lastException = ex;
                 attempt++;
+
+                if (attempt >= _config.MaxRetries)
+                {
+                    break;
+                }
 
                 var delay = CalculateDelay(attempt);
                 _logger.LogWarning(ex, "Operation {OperationName} failed on attempt {Attempt}, retrying in {Delay}ms", 
