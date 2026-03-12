@@ -18,6 +18,8 @@ public class MemoryManagementService : IDisposable
     private readonly ConcurrentDictionary<string, WeakReference> _documentCache = new();
     private readonly ConcurrentDictionary<string, WeakReference> _embeddingCache = new();
     private readonly List<Func<Task>> _memoryPressureCallbacks = new();
+    private readonly object _documentCacheCleanupLock = new();
+    private readonly object _embeddingCacheCleanupLock = new();
     private long _documentCacheSizeBytes;
     private long _embeddingCacheSizeBytes;
     private bool _disposed;
@@ -265,65 +267,71 @@ public class MemoryManagementService : IDisposable
 
     private void CleanupDocumentCache(double removalRatio = 1.0)
     {
-        var keysToRemove = new List<string>();
-        var targetRemovalCount = (int)(_documentCache.Count * removalRatio);
-        
-        foreach (var kvp in _documentCache.Take(targetRemovalCount))
+        lock (_documentCacheCleanupLock)
         {
-            if (!kvp.Value.IsAlive)
+            var keysToRemove = new List<string>();
+            var targetRemovalCount = (int)(_documentCache.Count * removalRatio);
+
+            foreach (var kvp in _documentCache.Take(targetRemovalCount))
             {
-                keysToRemove.Add(kvp.Key);
-            }
-            else if (removalRatio < 1.0)
-            {
-                keysToRemove.Add(kvp.Key);
-                if (kvp.Value.Target is CachedItem item)
+                if (!kvp.Value.IsAlive)
                 {
-                    Interlocked.Add(ref _documentCacheSizeBytes, -item.SizeBytes);
+                    keysToRemove.Add(kvp.Key);
+                }
+                else if (removalRatio < 1.0)
+                {
+                    keysToRemove.Add(kvp.Key);
+                    if (kvp.Value.Target is CachedItem item)
+                    {
+                        Interlocked.Add(ref _documentCacheSizeBytes, -item.SizeBytes);
+                    }
                 }
             }
-        }
 
-        foreach (var key in keysToRemove)
-        {
-            _documentCache.TryRemove(key, out _);
-        }
+            foreach (var key in keysToRemove)
+            {
+                _documentCache.TryRemove(key, out _);
+            }
 
-        if (keysToRemove.Count > 0)
-        {
-            _logger.LogDebug("Cleaned up {Count} document cache entries", keysToRemove.Count);
+            if (keysToRemove.Count > 0)
+            {
+                _logger.LogDebug("Cleaned up {Count} document cache entries", keysToRemove.Count);
+            }
         }
     }
 
     private void CleanupEmbeddingCache(double removalRatio = 1.0)
     {
-        var keysToRemove = new List<string>();
-        var targetRemovalCount = (int)(_embeddingCache.Count * removalRatio);
-        
-        foreach (var kvp in _embeddingCache.Take(targetRemovalCount))
+        lock (_embeddingCacheCleanupLock)
         {
-            if (!kvp.Value.IsAlive)
+            var keysToRemove = new List<string>();
+            var targetRemovalCount = (int)(_embeddingCache.Count * removalRatio);
+
+            foreach (var kvp in _embeddingCache.Take(targetRemovalCount))
             {
-                keysToRemove.Add(kvp.Key);
-            }
-            else if (removalRatio < 1.0)
-            {
-                keysToRemove.Add(kvp.Key);
-                if (kvp.Value.Target is CachedItem item)
+                if (!kvp.Value.IsAlive)
                 {
-                    Interlocked.Add(ref _embeddingCacheSizeBytes, -item.SizeBytes);
+                    keysToRemove.Add(kvp.Key);
+                }
+                else if (removalRatio < 1.0)
+                {
+                    keysToRemove.Add(kvp.Key);
+                    if (kvp.Value.Target is CachedItem item)
+                    {
+                        Interlocked.Add(ref _embeddingCacheSizeBytes, -item.SizeBytes);
+                    }
                 }
             }
-        }
 
-        foreach (var key in keysToRemove)
-        {
-            _embeddingCache.TryRemove(key, out _);
-        }
+            foreach (var key in keysToRemove)
+            {
+                _embeddingCache.TryRemove(key, out _);
+            }
 
-        if (keysToRemove.Count > 0)
-        {
-            _logger.LogDebug("Cleaned up {Count} embedding cache entries", keysToRemove.Count);
+            if (keysToRemove.Count > 0)
+            {
+                _logger.LogDebug("Cleaned up {Count} embedding cache entries", keysToRemove.Count);
+            }
         }
     }
 
